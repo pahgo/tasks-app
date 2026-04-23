@@ -574,6 +574,36 @@ select {
   color: #374151;
 }
 
+.priority-low {
+  background: rgba(16, 185, 129, 0.12);
+  color: #065f46;
+}
+
+.priority-medium {
+  background: rgba(245, 158, 11, 0.12);
+  color: #92400e;
+}
+
+.priority-high {
+  background: rgba(239, 68, 68, 0.12);
+  color: #7f1d1d;
+}
+
+.sortable-header {
+  cursor: pointer;
+  user-select: none;
+}
+
+.sortable-header:hover {
+  background: rgba(79, 70, 229, 0.08);
+}
+
+.sort-indicator {
+  font-size: 0.85rem;
+  margin-left: 0.35rem;
+  opacity: 0.7;
+}
+
 .task-topics {
   display: flex;
   flex-wrap: wrap;

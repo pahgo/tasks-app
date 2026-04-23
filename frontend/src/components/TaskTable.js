@@ -13,11 +13,7 @@ const priorityLabels = {
   high: 'High',
 };
 
-const priorityColors = {
-  low: '#10b981',
-  medium: '#f59e0b',
-  high: '#ef4444',
-};
+const priorityOrder = { high: 0, medium: 1, low: 2 };
 
 export default function TaskTable({
   tasks,
@@ -28,6 +24,43 @@ export default function TaskTable({
 }) {
   const [editingCell, setEditingCell] = useState(null);
   const [tempValue, setTempValue] = useState('');
+  const [sortConfig, setSortConfig] = useState({ field: 'priority', order: 'asc' });
+
+  const sortedTasks = [...tasks].sort((a, b) => {
+    let aValue = a[sortConfig.field];
+    let bValue = b[sortConfig.field];
+
+    if (sortConfig.field === 'priority') {
+      aValue = priorityOrder[aValue] ?? 999;
+      bValue = priorityOrder[bValue] ?? 999;
+    }
+
+    if (sortConfig.field === 'status') {
+      const statusOrder = { todo: 0, in_progress: 1, done: 2, archived: 3 };
+      aValue = statusOrder[aValue] ?? 999;
+      bValue = statusOrder[bValue] ?? 999;
+    }
+
+    if (typeof aValue === 'string' && typeof bValue === 'string') {
+      aValue = aValue.toLowerCase();
+      bValue = bValue.toLowerCase();
+    }
+
+    if (sortConfig.order === 'desc') {
+      [aValue, bValue] = [bValue, aValue];
+    }
+
+    if (aValue < bValue) return -1;
+    if (aValue > bValue) return 1;
+    return 0;
+  });
+
+  const handleSort = (field) => {
+    setSortConfig((prev) => ({
+      field,
+      order: prev.field === field && prev.order === 'asc' ? 'desc' : 'asc',
+    }));
+  };
 
   const handleCellClick = (taskId, field, currentValue) => {
     setEditingCell({ taskId, field });
@@ -65,16 +98,36 @@ export default function TaskTable({
       <table className="task-table">
         <thead>
           <tr>
-            <th>Title</th>
-            <th>Description</th>
-            <th>Priority</th>
-            <th>Status</th>
+            <th className="sortable-header" onClick={() => handleSort('title')}>
+              Title
+              {sortConfig.field === 'title' && (
+                <span className="sort-indicator">{sortConfig.order === 'asc' ? ' ↑' : ' ↓'}</span>
+              )}
+            </th>
+            <th className="sortable-header" onClick={() => handleSort('description')}>
+              Description
+              {sortConfig.field === 'description' && (
+                <span className="sort-indicator">{sortConfig.order === 'asc' ? ' ↑' : ' ↓'}</span>
+              )}
+            </th>
+            <th className="sortable-header" onClick={() => handleSort('priority')}>
+              Priority
+              {sortConfig.field === 'priority' && (
+                <span className="sort-indicator">{sortConfig.order === 'asc' ? ' ↑' : ' ↓'}</span>
+              )}
+            </th>
+            <th className="sortable-header" onClick={() => handleSort('status')}>
+              Status
+              {sortConfig.field === 'status' && (
+                <span className="sort-indicator">{sortConfig.order === 'asc' ? ' ↑' : ' ↓'}</span>
+              )}
+            </th>
             <th>Topics</th>
             <th>Actions</th>
           </tr>
         </thead>
         <tbody>
-          {tasks.map((task) => (
+          {sortedTasks.map((task) => (
             <tr key={task.id} className="task-row">
               <td className="task-title-cell">
                 <span className="task-title">{task.title}</span>
@@ -87,12 +140,7 @@ export default function TaskTable({
               </td>
 
               {/* Priority - Inline Editable */}
-              <td
-                className="task-priority-cell"
-                style={{
-                  borderLeftColor: priorityColors[task.priority],
-                }}
-              >
+              <td className="task-priority-cell">
                 {editingCell?.taskId === task.id && editingCell?.field === 'priority' ? (
                   <select
                     className="inline-select"
@@ -112,7 +160,9 @@ export default function TaskTable({
                     onClick={() => handleCellClick(task.id, 'priority', task.priority)}
                     title="Click to edit"
                   >
-                    <span className="priority-badge">{priorityLabels[task.priority]}</span>
+                    <span className={`priority-badge priority-${task.priority}`}>
+                      {priorityLabels[task.priority]}
+                    </span>
                   </button>
                 )}
               </td>
@@ -131,13 +181,13 @@ export default function TaskTable({
                     <option value="todo">To do</option>
                     <option value="in_progress">In progress</option>
                     <option value="done">Done</option>
-                    <option value="archived">Archived</option>
+                    {task.status === 'done' && <option value="archived">Archived</option>}
                   </select>
                 ) : (
                   <button
                     className="task-cell-button"
                     onClick={() => handleCellClick(task.id, 'status', task.status)}
-                    title="Click to edit"
+                    title={task.status === 'done' ? 'Click to edit' : 'Only done tasks can be archived'}
                   >
                     <span className={`status-badge status-${task.status}`}>
                       {statusLabels[task.status]}
