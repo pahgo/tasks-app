@@ -1,4 +1,14 @@
-export default function TaskFilter({ filter, onChange }) {
+export default function TaskFilter({ filter, onChange, topics = [] }) {
+  const toggleTopic = (topicId) => {
+    const currentTopics = filter.topics || [];
+    onChange({
+      ...filter,
+      topics: currentTopics.includes(topicId)
+        ? currentTopics.filter((t) => t !== topicId)
+        : [...currentTopics, topicId],
+    });
+  };
+
   return (
     <section className="task-filter">
       <input
@@ -30,6 +40,26 @@ export default function TaskFilter({ filter, onChange }) {
           <option value="high">High</option>
         </select>
       </div>
+
+      {topics.length > 0 && (
+        <div className="filter-topics">
+          <div className="filter-topics-header">
+            <label>Filter by topic:</label>
+          </div>
+          <div className="filter-topics-list">
+            {topics.map((topic) => (
+              <label key={topic.id} className="topic-filter-checkbox">
+                <input
+                  type="checkbox"
+                  checked={(filter.topics || []).includes(topic.id)}
+                  onChange={() => toggleTopic(topic.id)}
+                />
+                <span className="topic-filter-label">{topic.name}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+      )}
     </section>
   );
 }

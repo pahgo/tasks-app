@@ -1,24 +1,30 @@
 import { useMemo, useState } from 'react';
-import TaskCard from './TaskCard';
+import TaskTable from './TaskTable';
 import TaskForm from './TaskForm';
 import TaskFilter from './TaskFilter';
-import ShareModal from './ShareModal';
 import { useAuth } from '../hooks/useAuth';
 import { useTaskMutations } from '../hooks/useTaskMutations';
+import { useTopics } from '../hooks/useTopics';
+import { setTaskTopics } from '../services/topics.service';
 
 export default function TaskList({ tasks }) {
   const { user } = useAuth();
   const { createTask: createTaskMutation, updateTask: updateTaskMutation, deleteTask: deleteTaskMutation } = useTaskMutations();
-  const [filter, setFilter] = useState({ query: '', status: '', priority: '' });
+  const { topics } = useTopics();
+  const [filter, setFilter] = useState({ query: '', status: '', priority: '', topics: [] });
   const [editingTask, setEditingTask] = useState(null);
   const [formOpen, setFormOpen] = useState(false);
-  const [sharingTask, setSharingTask] = useState(null);
   const [error, setError] = useState(null);
   const saving = createTaskMutation.isLoading || updateTaskMutation.isLoading || deleteTaskMutation.isLoading;
 
   const filteredTasks = useMemo(() => {
     return tasks
       .filter((task) => {
+        // Hide archived tasks unless explicitly filtered
+        if (!filter.status && task.status === 'archived') {
+          return false;
+        }
+
         if (filter.status && task.status !== filter.status) {
           return false;
         }
@@ -29,6 +35,13 @@ export default function TaskList({ tasks }) {
           const value = filter.query.toLowerCase();
           return task.title.toLowerCase().includes(value) || (task.description ?? '').toLowerCase().includes(value);
         }
+
+        // Filter by topics if selected
+        if (filter.topics && filter.topics.length > 0) {
+          const taskTopicIds = task.topics?.map((t) => t.id) ?? [];
+          return filter.topics.some((topicId) => taskTopicIds.includes(topicId));
+        }
+
         return true;
       })
       .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
@@ -39,14 +52,35 @@ export default function TaskList({ tasks }) {
 
     try {
       if (editingTask) {
-        await updateTaskMutation.mutateAsync({ taskId: editingTask.id, updates: data });
+        const { topicIds, ...updates } = data;
+        await updateTaskMutation.mutateAsync({ taskId: editingTask.id, updates });
+        
+        // Handle topic updates
+        if (topicIds) {
+          await setTaskTopics(editingTask.id, topicIds);
+        }
       } else {
-        await createTaskMutation.mutateAsync({ task: data, user });
+        const { topicIds, ...taskData } = data;
+        const createdTask = await createTaskMutation.mutateAsync({ task: taskData, user });
+        
+        // Handle topic assignments for new task
+        if (topicIds && topicIds.length > 0) {
+          await setTaskTopics(createdTask.id, topicIds);
+        }
       }
       setFormOpen(false);
       setEditingTask(null);
     } catch (saveError) {
       setError(saveError.message || 'Unable to save task');
+    }
+  };
+
+  const handleInlineUpdate = async (data) => {
+    setError(null);
+    try {
+      await updateTaskMutation.mutateAsync(data);
+    } catch (updateError) {
+      setError(updateError.message || 'Unable to update task');
     }
   };
 
@@ -70,11 +104,11 @@ export default function TaskList({ tasks }) {
           setEditingTask(null);
           setFormOpen(true);
         }}>
-          New task
+          + New task
         </button>
       </div>
 
-      <TaskFilter filter={filter} onChange={setFilter} />
+      <TaskFilter filter={filter} onChange={setFilter} topics={topics} />
 
       {error && <div className="error-panel">{error}</div>}
 
@@ -95,25 +129,15 @@ export default function TaskList({ tasks }) {
       {filteredTasks.length === 0 ? (
         <div className="empty-state">No tasks found. Create your first task to begin.</div>
       ) : (
-        filteredTasks.map((task) => (
-          <TaskCard
-            key={task.id}
-            task={task}
-            onShare={(taskItem) => setSharingTask(taskItem)}
-            onEdit={(taskItem) => {
-              setEditingTask(taskItem);
-              setFormOpen(true);
-            }}
-            onDelete={handleDelete}
-          />
-        ))
-      )}
-
-      {sharingTask && (
-        <ShareModal
-          task={sharingTask}
-          onClose={() => setSharingTask(null)}
-          onShared={() => setSharingTask(null)}
+        <TaskTable
+          tasks={filteredTasks}
+          onUpdateTask={handleInlineUpdate}
+          onDeleteTask={handleDelete}
+          onEdit={(taskItem) => {
+            setEditingTask(taskItem);
+            setFormOpen(true);
+          }}
+          loading={saving}
         />
       )}
     </section>

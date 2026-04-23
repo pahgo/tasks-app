@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useTopics } from '../hooks/useTopics';
 
 const statusOptions = [
   { value: 'todo', label: 'To do' },
@@ -18,12 +19,16 @@ export default function TaskForm({ task, onSave, onCancel, loading }) {
   const [description, setDescription] = useState(task?.description ?? '');
   const [priority, setPriority] = useState(task?.priority ?? 'medium');
   const [status, setStatus] = useState(task?.status ?? 'todo');
+  const [selectedTopics, setSelectedTopics] = useState(task?.topics?.map((t) => t.id) ?? []);
+  const [newTopicInput, setNewTopicInput] = useState('');
+  const { topics, createTopic, isCreating } = useTopics();
 
   useEffect(() => {
     setTitle(task?.title ?? '');
     setDescription(task?.description ?? '');
     setPriority(task?.priority ?? 'medium');
     setStatus(task?.status ?? 'todo');
+    setSelectedTopics(task?.topics?.map((t) => t.id) ?? []);
   }, [task]);
 
   const handleSubmit = (event) => {
@@ -33,7 +38,26 @@ export default function TaskForm({ task, onSave, onCancel, loading }) {
       description: description.trim(),
       priority,
       status,
+      topicIds: selectedTopics,
     });
+  };
+
+  const handleAddNewTopic = async () => {
+    if (newTopicInput.trim()) {
+      try {
+        const created = await createTopic(newTopicInput);
+        setSelectedTopics([...selectedTopics, created.id]);
+        setNewTopicInput('');
+      } catch (error) {
+        console.error('Failed to create topic:', error);
+      }
+    }
+  };
+
+  const toggleTopic = (topicId) => {
+    setSelectedTopics((prev) =>
+      prev.includes(topicId) ? prev.filter((id) => id !== topicId) : [...prev, topicId]
+    );
   };
 
   return (
@@ -86,6 +110,49 @@ export default function TaskForm({ task, onSave, onCancel, loading }) {
           </select>
         </div>
       </div>
+
+      {/* Topics Section */}
+      <div className="task-form-row">
+        <label>Topics</label>
+        {topics.length > 0 && (
+          <div className="topic-selector">
+            {topics.map((topic) => (
+              <label key={topic.id} className="topic-checkbox">
+                <input
+                  type="checkbox"
+                  checked={selectedTopics.includes(topic.id)}
+                  onChange={() => toggleTopic(topic.id)}
+                />
+                <span>{topic.name}</span>
+              </label>
+            ))}
+          </div>
+        )}
+        <div className="topic-input-group">
+          <input
+            type="text"
+            className="task-input"
+            placeholder="Add new topic..."
+            value={newTopicInput}
+            onChange={(e) => setNewTopicInput(e.target.value)}
+            onKeyPress={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                handleAddNewTopic();
+              }
+            }}
+          />
+          <button
+            type="button"
+            className="button button-secondary"
+            onClick={handleAddNewTopic}
+            disabled={!newTopicInput.trim() || isCreating}
+          >
+            {isCreating ? 'Adding…' : 'Add'}
+          </button>
+        </div>
+      </div>
+
       <div className="task-form-actions">
         <button type="button" className="button button-ghost" onClick={onCancel}>
           Cancel

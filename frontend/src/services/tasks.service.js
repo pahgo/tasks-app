@@ -4,14 +4,17 @@ import { addOfflineOperation } from '../utils/offlineStore';
 export async function fetchTasks() {
   const { data, error } = await supabase
     .from('tasks')
-    .select('*')
+    .select('*, task_topics ( topics ( id, name ) )')
     .order('created_at', { ascending: false });
 
   if (error) {
     throw new Error(error.message);
   }
 
-  return data;
+  return (data || []).map((task) => ({
+    ...task,
+    topics: task.task_topics?.map((topicLink) => topicLink.topics) ?? [],
+  }));
 }
 
 export async function fetchTopics() {
