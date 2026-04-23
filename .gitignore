@@ -1,8 +1,7 @@
 # Local environment variables
 .env.local
 .env.*.local
-frontend/.env.local
-frontend/.env.*.local
+frontend/.env.*
 
 # React build output
 frontend/build/
